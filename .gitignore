@@ -1,0 +1,7 @@
+node_modules/
+public/healing/track-*
+.wrangler/
+*.log
+audit/
+*.jsonl
+*.env

@@ -1,0 +1,120 @@
+name = "nao-00"
+main = "src/index.ts"
+compatibility_date = "2026-05-07"
+workers_dev = true
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+not_found_handling = "none"
+run_worker_first = ["/", "/remote", "/healing", "/dashboard", "/voice", "/v2", "/health", "/version", "/council", "/council/*", "/talk", "/improve/*", "/robots.txt", "/sitemap.xml", "/gab44", "/gab44/*", "/manus", "/manus/*", "/tools/*", "/metrics/*", "/mcp", "/mcp/*", "/memory/*", "/history", "/reflection/*", "/briefing/*", "/recap/*", "/weekly/*", "/notify/*", "/nemotron/*", "/manifest.webmanifest", "/sw.js", "/reality", "/reality/*", "/streams", "/streams/*", "/inbox/*", "/orchestrator/*", "/slack/*", "/synthesis/*", "/events/*", "/credentials/*", "/continuity", "/continuity/*", "/fleet/lease", "/fleet/leases", "/fleet/referee", "/race/*"]
+
+[vars]
+ENVIRONMENT = "production"
+ELEVENLABS_VOICE_ID = "21m00Tcm4TlvDq8ikWAM"
+# Set this to your Helio paylink URL (https://www.hel.io/pay/<id>) to enable the tip jar on /healing.
+# Leave empty to hide the support section.
+HELIO_PAYLINK_URL = ""
+# Notify channels for the daily loop:
+#   GMAIL — recipient + mode ('draft' | 'send'). Defaults: naoufal@vehea.com / draft.
+#   SLACK — channel id for the recap. D0ASHUW4Q1F is Naoufal's DM with the
+#           Composio slack bot in the gab44 workspace.
+NOTIFY_GMAIL_TO = "naoufal@vehea.com"
+NOTIFY_GMAIL_MODE = "draft"
+NOTIFY_SLACK_CHANNEL = "D0ASHUW4Q1F"
+
+[[kv_namespaces]]
+binding = "KV"
+id = "79f1b24891eb446b8fcc6e5a3cc12f57"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "nao00-db"
+database_id = "5dd2d7c8-0f37-45d7-9be8-219f41624e88"
+
+# Per-user Naoufal Durable Object — sqlite-backed (free tier).
+# One DO per user_id. Holds working memory, profile, alarms.
+[[durable_objects.bindings]]
+name = "NAOUFAL"
+class_name = "Naoufal"
+
+# Context DO — global "world snapshot" for the council. One instance keyed
+# 'global'. Refreshes every 10 min via alarm() — gmail/slack/calendar/github/streams.
+# Read by /memory/context/full and (eventually) by councilPipeline.
+[[durable_objects.bindings]]
+name = "CONTEXT_DO"
+class_name = "ContextDO"
+
+# Orchestrator DO — closed-loop goal runner. POST /orchestrator/goal creates
+# a row, alarm() drives the planner→router→executor loop. Race lanes
+# (Opus + MiniMax) live inside Tool Router.
+[[durable_objects.bindings]]
+name = "ORCHESTRATOR_DO"
+class_name = "OrchestratorDO"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Naoufal"]
+
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["ContextDO", "OrchestratorDO"]
+
+# Cron triggers:
+#   */15 * * * *  → self-reflection tick (Nemotron, cheap; pillar metric & next-build hints)
+#   0 0 * * *     → morning briefing (gmail+calendar+nao44, daily 7am Bangkok = 0:00 UTC)
+#   0 16 * * *    → evening recap (council+metrics+haiku, daily 11pm Bangkok = 16:00 UTC)
+#   0 17 * * SUN  → weekly digest (Haiku aggregate of last 7 days, Sunday 17:00 UTC = Monday 00:00 Bangkok)
+#   0 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23 * * * → auto-coverage 23x/day (organic-or-external-or-evergreen).
+#                       23 hours × 1 tick/hour. v2.43+ uses per-day rotation:
+#                       Mon-Sat: 01=cooking, 02=academia, 03=arxiv, 04=money,
+#                                05=diy, 06=askubuntu, 07=security, 08=github,
+#                                09=math, 10=dsp, 11=stackoverflow, 12=ux,
+#                                13=hn, 14=gis, 15=crossvalidated, 16=serverfault,
+#                                17=codereview, 18=wikipedia, 19=biology,
+#                                20=philosophy, 21=superuser, 22=electronics,
+#                                23=bbc.
+#                       Per-day rotation overrides:
+#                         Sat 02 = history   (replaces academia weekly, v2.44)
+#                         Sat 19 = gardening (replaces biology  weekly, v2.45)
+#                         Sun 05 = scifi     (replaces diy      weekly, v2.43)
+#                       26 distinct sources, 23 ticks/day. Each tick seeds up
+#                       to 3 distinct topics × 5 questions = up to 345 cached/day
+#                       from external alone. Trigger STRING count UNCHANGED at 5
+#                       — the 5-trigger account limit applies to strings, not hours
+#                       fired. Adding new sources via per-day rotation is free
+#                       (just more if/dayOfWeek branches in externalSourceForHour).
+[triggers]
+crons = ["*/15 * * * *", "0 0 * * *", "0 16 * * *", "0 17 * * SUN", "0 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23 * * *"]
+
+# Custom domains — auto-provision once each zone is active in Cloudflare.
+# Using subdomains (not apex) so we don't conflict with existing nchobah.com A record.
+# Apex nchobah.com is kept for whatever you have there now; redirect to a subdomain later via Cloudflare page rule.
+[[routes]]
+pattern = "nao00.nchobah.com"
+custom_domain = true
+[[routes]]
+pattern = "agent.nchobah.com"
+custom_domain = true
+[[routes]]
+pattern = "dash.nchobah.com"
+custom_domain = true
+[[routes]]
+pattern = "dash.gab44.com"
+custom_domain = true
+[[routes]]
+pattern = "bot.gab44.com"
+custom_domain = true
+# Phone-bookmark friendly short aliases — Naoufal typed nao.nchobah.com on his
+# phone and got DNS_PROBE_POSSIBLE because we'd never wired it. v2.90.1.
+[[routes]]
+pattern = "nao.nchobah.com"
+custom_domain = true
+[[routes]]
+pattern = "me.nchobah.com"
+custom_domain = true
+
+# Apex `nchobah.com` — blocked: existing A records on apex are externally managed.
+# Fix path: in Cloudflare dashboard → nchobah.com → DNS → delete the two apex A records
+# (188.114.96.1 and 188.114.97.1), then re-enable this route. Worker code already redirects apex.
+# Until then, use `nao00.nchobah.com/v2` as the canonical URL.

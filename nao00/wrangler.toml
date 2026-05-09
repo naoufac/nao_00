@@ -1,0 +1,16 @@
+name = "nao-00"
+main = "src/index.ts"
+compatibility_date = "2026-05-07"
+
+[vars]
+ENVIRONMENT = "production"
+ELEVENLABS_VOICE_ID = "21m00Tcm4TlvDq8ikWAM"
+
+[[kv_namespaces]]
+binding = "KV"
+id = "79f1b24891eb446b8fcc6e5a3cc12f57"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "nao00-db"
+database_id = "5dd2d7c8-0f37-45d7-9be8-219f41624e88"
