@@ -1,0 +1,71 @@
+name: Agent Executor
+
+on:
+  workflow_dispatch:
+    inputs:
+      task_id:
+        description: 'Hermes Kanban task ID'
+        required: true
+        type: string
+      task_brief:
+        description: 'What the agent should do'
+        required: true
+        type: string
+      task_context:
+        description: 'Additional context from Hermes'
+        required: false
+        type: string
+
+jobs:
+  execute:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run Agent Task
+        env:
+          TASK_ID: ${{ inputs.task_id }}
+          TASK_BRIEF: ${{ inputs.task_brief }}
+          TASK_CONTEXT: ${{ inputs.task_context }}
+          HERMES_WEBHOOK_URL: ${{ secrets.HERMES_WEBHOOK_URL }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          echo "=== TASK START ==="
+          echo "ID: $TASK_ID"
+          echo "BRIEF: $TASK_BRIEF"
+          echo ""
+          
+          # Parse and execute the task
+          # For now: echo the brief as a demo
+          # Real implementation: agent processes the brief
+          
+          mkdir -p /tmp/hermes-tasks
+          echo "$TASK_BRIEF" > /tmp/hermes-tasks/$TASK_ID.txt
+          
+          # Simulate work done
+          sleep 2
+          
+          RESULT="Task $TASK_ID completed at $(date -u)"
+          echo "$RESULT"
+          
+          # Report back to Hermes via webhook
+          if [ -n "$HERMES_WEBHOOK_URL" ]; then
+            curl -s -X POST "$HERMES_WEBHOOK_URL" \
+              -H "Content-Type: application/json" \
+              -d "{\"task_id\":\"$TASK_ID\",\"status\":\"done\",\"result\":\"$RESULT\"}"
+          fi
+
+      - name: Report Failure
+        if: failure()
+        env:
+          TASK_ID: ${{ inputs.task_id }}
+          HERMES_WEBHOOK_URL: ${{ secrets.HERMES_WEBHOOK_URL }}
+        run: |
+          if [ -n "$HERMES_WEBHOOK_URL" ]; then
+            curl -s -X POST "$HERMES_WEBHOOK_URL" \
+              -H "Content-Type: application/json" \
+              -d "{\"task_id\":\"$TASK_ID\",\"status\":\"failed\",\"error\":\"Workflow failed\"}"
+          fi
