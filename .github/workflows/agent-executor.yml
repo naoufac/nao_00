@@ -11,15 +11,62 @@ on:
         description: 'What the agent should do'
         required: true
         type: string
+      task_context:
+        description: 'Additional context'
+        required: false
+        type: string
 
 jobs:
   execute:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Clone nao_00 repo
+        uses: actions/checkout@v4
+        with:
+          repository: naoufac/nao_00
+          branch: main
+
+      - name: Install dependencies
+        run: npm ci
+
       - name: Run Agent Task
+        env:
+          TASK_ID: ${{ inputs.task_id }}
+          TASK_BRIEF: ${{ inputs.task_brief }}
+          TASK_CONTEXT: ${{ inputs.task_context || '' }}
+          # Secrets would be configured in repo settings for real deployments
         run: |
           echo "=== AGENT TASK ==="
-          echo "ID: ${{ inputs.task_id }}"
-          echo "BRIEF: ${{ inputs.task_brief }}"
-          echo "RESULT: completed at $(date -u)"
+          echo "ID: $TASK_ID"
+          echo "BRIEF: $TASK_BRIEF"
+          if [ -n "$TASK_CONTEXT" ]; then
+            echo "CONTEXT: $TASK_CONTEXT"
+          fi
+          echo "=== EXECUTING ==="
+          
+          # Simulate task execution (real impl would run the actual agent)
+          RESULT="completed at $(date -u)"
+          echo "RESULT: $RESULT"
+          
+          # Post result back (webhook callback if configured)
+          if [ -n "$CALLBACK_URL" ]; then
+            curl -s -X POST "$CALLBACK_URL" -H "Content-Type: application/json" -d "{\"task_id\":\"$TASK_ID\",\"result\":\"$RESULT\"}" || true
+          fi
+          
+          echo "=== DONE ==="
+
+  notify-success:
+    needs: execute
+    runs-on: ubuntu-latest
+    if: success()
+    steps:
+      - name: Echo success
+        run: |
+          echo "Task $TASK_ID completed successfully"
+          echo "Timestamp: $(date -u)"
